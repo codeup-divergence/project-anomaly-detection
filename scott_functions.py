@@ -1,0 +1,183 @@
+######IMPORTS#####
+
+# Ignore Warnings
+import warnings
+warnings.filterwarnings("ignore")
+
+# Basics:
+import pandas as pd
+import numpy as np
+import math
+import numpy as np
+import scipy.stats as stats
+import os
+
+# Data viz:
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+# Sklearn stuff:
+import sklearn
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import mutual_info_score
+from sklearn.cluster import KMeans
+
+from sklearn.model_selection import train_test_split
+
+## Regression Models
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.linear_model import LinearRegression, LassoLars, TweedieRegressor
+from sklearn.preprocessing import PolynomialFeatures
+
+## Classification Models
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.ensemble import GradientBoostingClassifier
+
+from sklearn.metrics import classification_report, confusion_matrix, plot_confusion_matrix
+
+## local
+import wrangle
+
+
+
+###### VISUALIZATIONS ########
+
+def get_distplot(train):
+    '''
+    creates a ditribution chart for the target variable quality
+    '''
+    # Plot the distribution of the target variable
+    plt.figure(figsize=(12, 3))
+    sns.histplot(train['quality'], kde=False, shrink=8)
+    plt.xlabel('Quality Rating')
+    plt.ylabel('Count')
+    plt.title('Distribution of Quality')
+    # Add a vertical line for the baseline 
+    plt.axvline(x=6, color='red', linestyle='--', label='Baseline')
+    plt.legend()
+    plt.show()
+    
+
+
+def get_ca_quality(train):
+    '''
+    Input:
+    train df
+    Output:
+    barplot of quality and citric acid
+    '''
+    plt.figure(figsize=(12,6))
+    sns.barplot(data=train, x='quality', y='citric_acid', palette='Set1')
+    plt.title('Wine by Quality and Citric Acid')
+    plt.ylabel('Citric Acid (g/L)')
+    plt.xlabel('Quality Rating')
+    plt.show()
+
+
+
+
+
+###### STATS ########
+
+
+def run_volatile_acidity_ttest(data):
+    '''
+    runs a Ttest for volatile_acidity vs quality
+    '''
+    x = data['volatile_acidity']
+    y = data['quality']
+    # Perform t-test
+    t_statistic, p_value = stats.ttest_ind(x, y)
+    # Decide whether to reject the null hypothesis
+    alpha = 0.05
+    if p_value == alpha:
+        decision = "Fail to Reject Null Hypothesis"
+    else:
+        decision = "Reject Null Hypothesis"
+# Create a DataFrame to store the results
+    results = pd.DataFrame({
+        'T-Statistic': [t_statistic],
+        'P-Value': [p_value],
+        'Decision': [decision]})
+    return results
+
+######## Anomaly Detection ###########
+
+
+
+
+
+
+
+####### Clustering #########
+
+
+def scale_data_clusters(train):
+    """
+    Scale the selected columns in the train.
+    Args:
+        train (pd.DataFrame): Training data.
+        columns (list): List of column names to scale.
+    Returns:
+        tuple: Scaled data as (X_train_scaled).
+    """
+    columns = ['alcohol', 'volatile_acidity',
+           'sulphates','citric_acid','free_sulfur_dioxide',
+           'ph','fixed_acidity','residual_sugar','white','chlorides','density']
+
+    # create X & y version of train, where y is a series with just the target variable and X are all the features.
+    X_train2 = train.drop(['total_sulfur_dioxide','wine_type'], axis=1)
+
+    # Create a scaler object
+    scaler = MinMaxScaler()
+    # Fit the scaler on the training data for the selected columns
+    scaler.fit(X_train2[columns])
+    # Apply scaling to the selected columns in all data splits
+    X_train_scaled2 = X_train2.copy()
+    X_train_scaled2[columns] = scaler.transform(X_train2[columns])
+
+    return X_train_scaled2
+
+def find_clusters(train, variable1, variable2, variable3):
+    '''
+    Inputs:
+    df, variable1, variable2, variable3 as strings
+    in search of potential clusters
+    Outputs:
+    Plot with clusters & 
+    new_df
+    '''
+    # create X_train
+    X = train[[variable1, variable2, variable3]]
+    # initiate kmeans
+    kmeans = KMeans(3)
+    kmeans.fit(X)
+    kmeans.predict(X)
+    # create new column with cluster
+    train['cluster'] = kmeans.predict(X)
+    
+    kmeans.cluster_centers_
+    centroids = pd.DataFrame(kmeans.cluster_centers_, columns=X.columns[:3])
+    train['cluster'] = 'cluster_' + train.cluster.astype(str)
+    
+    #Plot the actual distribution of species next to my generated clusters
+    fig, axes = plt.subplots(1, 2, figsize=(16, 9))
+    # Scatter for target variable
+    sns.scatterplot(ax=axes[0], x=variable1, y=variable2, hue='quality', palette='colorblind', data=train)
+    axes[0].set_title("Actual Distribution of Quality")
+    # Scatter for cluster
+    sns.scatterplot(ax=axes[1], x=variable1, y=variable2, hue='cluster', palette='colorblind', data=train)
+    axes[1].set_title("Clusters Generated by KMeans")
+    plt.show()
+    
+    return train
+
+
+
+
