@@ -46,66 +46,152 @@ import wrangle
 
 
 
-###### VISUALIZATIONS ########
+###### Functions for Questions ########
 
-def get_distplot(train):
-    '''
-    creates a ditribution chart for the target variable quality
-    '''
-    # Plot the distribution of the target variable
-    plt.figure(figsize=(12, 3))
-    sns.histplot(train['quality'], kde=False, shrink=8)
-    plt.xlabel('Quality Rating')
-    plt.ylabel('Count')
-    plt.title('Distribution of Quality')
-    # Add a vertical line for the baseline 
-    plt.axvline(x=6, color='red', linestyle='--', label='Baseline')
-    plt.legend()
-    plt.show()
+# defining a function for explore.py to get lower and upper bounds using IQR method
+def get_lower_and_upper_bounds(s, multiplier=1.5):
+    """
+    This function will
+    - accept a numeric series, s; and a float, multipler with the default value of 1.5
+    - calculate the lower and upper limit, for example:
+        - upper = Q3 + 1.5*IQR
+        - lower = Q1 - 1.5*IQR
+        - Q1 and Q3 are the quartile values for the 1st/3rd quartiles
+        - IQR is the Interquartile range which is Q3-Q1
+    - this method works for non-normally distributed data (according to curriculum / Tukey)
+    - returns lower_bound and upper_bound
+    """
+    Q1 = s.quantile(.25)
+    Q3 = s.quantile(.75)
+    IQR = Q3 - Q1
+    lower = Q1 - multiplier * IQR
+    upper = Q3 + multiplier * IQR  
+    return lower, upper
+
+
+# defining a function to get the top or bottom page counts by program
+def question1_7(df, number=5, bottom=False):
+    """
+    This function will 
+    - accept a df from wrangle_curriculum_logs and a boolean top (True if user wants top 5, False if bottom 5)
+    - print out the top or bottom 5 most accessed pages per program
+    - returns nothing
+    """
+    # 50313 rows with '/' as the endpoint. This is what the text file has.
+    # I will ignore these for the sake of exploration
     
+    # get a count of the unique program_id - endpoint combinations
+    endpoints_by_program = df[df.endpoint != '/'].groupby(['program_id', 'endpoint']).endpoint.count()
+    # make a list of program_ids to iterate over
+    program_id_list = sorted(df.program_id.unique())
+
+    if bottom:
+        top_or_bottom = 'Bottom'
+    else:
+        top_or_bottom = 'Top'
+    # printing the top/bottom programs in each of the program ids
+    for id in program_id_list:
+        print (f'{top_or_bottom} {number} page access counts for program {id}: ')
+        print (endpoints_by_program.loc[id].sort_values(ascending = bottom).head(number))
+        print('---------------------------')
+        
+        
+# defining a function to get lower and upper bounds and compare pages across cohorts
+def question2(df, multiplier=3):
+    """
+    This function will
+    - accept a dataframe from wrangle_curriculum_logs, preferably separated by program_id to reduce 
+       runtime and for results readability
+    - looks for high/low page visits per cohort
+    - returns a dataframe of pages that were visited a lot by some cohorts by very litte by other cohorts
+    """
+    # initialize lists for top and bottom page counts
+    top_page_list = []
+    bottom_page_list = []
+    # loop through cohorts
+    for c_name in df.name.unique():
+        # get the page counts for each cohort
+        cohort_pages = df[df.name == c_name].endpoint.value_counts()
+        # get the lower, upper bounds of page counts using IQR multiplier of 3
+        lower, upper = get_lower_and_upper_bounds(cohort_pages, multiplier)
+        # add top pages to top_page_list
+        top_page_list += list(cohort_pages[cohort_pages > upper].index)
+        # lower is < 0, so just add pages that only had a few hits (for now 1)
+        bottom_page_list += list(cohort_pages[cohort_pages <= 1].index)
+    # initialize a list of the bottom pages that are found in the top pages
+    # this will tell me what pages are glossed over by one cohort that are higher views in other cohorts
+    bottom_in_top_list = []
+    for p in bottom_page_list:
+        if p in top_page_list:
+            bottom_in_top_list.append(p)       
+    name_list = list(df.name.unique())
+    columns = ['endpoint'] + name_list
+    ## Debugging
+    # return bottom_in_top_list
+    # get a value_counts by cohort for each of the pages on the bottom_in_top_list
+    # first initialize a df
+    mismatch_pages_df = pd.DataFrame(columns=columns)
+    # for each page in the bottom_in_top_list, see what the page count is for each cohort & add it to mismatch_pages_df
+    for p in bottom_in_top_list:
+        p_count_list = []
+        for cohort in mismatch_pages_df.columns[1:]:
+            p_count = df[(df.name == cohort) & (df.endpoint == p)].endpoint.count()
+            p_count_list.append(p_count)
+        new_entry = [p] + p_count_list
+        mismatch_pages_df.loc[len(mismatch_pages_df)] = new_entry
+    return mismatch_pages_df
 
 
-def get_ca_quality(train):
+
+
+
+
+
+def question6(df):
     '''
-    Input:
-    train df
-    Output:
-    barplot of quality and citric acid
+    This function creates a list of web dev and data science programs
+    It then finds the Top 10 lessons most commonly accessed post graduation
+    Finally it creates a visualization of them 
     '''
-    plt.figure(figsize=(12,6))
-    sns.barplot(data=train, x='quality', y='citric_acid', palette='Set1')
-    plt.title('Wine by Quality and Citric Acid')
-    plt.ylabel('Citric Acid (g/L)')
-    plt.xlabel('Quality Rating')
+    # selecting post grad access rows
+    df_postgrad= df[df.index>df.end_date]
+    # splitting to web dev (prog 0-2) and data science (prog 3)
+    web_dev = df_postgrad[df_postgrad.program_id <3]
+    data_science = df_postgrad[df_postgrad.program_id ==3]
+    data_frames = [web_dev, data_science]
+
+    # Create a figure and axes for the subplots
+    fig, axes = plt.subplots(nrows=len(data_frames), figsize=(12, 4 * len(data_frames)))
+    
+    # Iterate over the DataFrames and plot the scatter plots
+    for i, df in enumerate(data_frames):
+        # Calculate the top 10 endpoint value counts
+        top_10 = df['endpoint'].value_counts().head(11)[1:]
+    
+        # Convert the value counts to a DataFrame for easier plotting
+        df_top_10 = pd.DataFrame({'Endpoint': top_10.index, 'Count': top_10.values})
+    
+        # Plot the scatter plot
+        ax = sns.scatterplot(data=df_top_10, x='Endpoint', y='Count', ax=axes[i])
+    
+        # Set plot title
+        if i == 0:
+            title = 'Web Dev'
+        else:
+            title = 'Data Science'
+        # Set plot title and axis labels
+        ax.set_title(f'Top 10 Endpoint Value Counts - {title}')
+        ax.set_xlabel('Endpoint')
+        ax.set_ylabel('Count')
+        plt.xticks(rotation=90)
+    # Adjust spacing between subplots
+    plt.tight_layout()
+    # Show the plot
     plt.show()
-
-
-
-
-
 ###### STATS ########
 
 
-def run_volatile_acidity_ttest(data):
-    '''
-    runs a Ttest for volatile_acidity vs quality
-    '''
-    x = data['volatile_acidity']
-    y = data['quality']
-    # Perform t-test
-    t_statistic, p_value = stats.ttest_ind(x, y)
-    # Decide whether to reject the null hypothesis
-    alpha = 0.05
-    if p_value == alpha:
-        decision = "Fail to Reject Null Hypothesis"
-    else:
-        decision = "Reject Null Hypothesis"
-# Create a DataFrame to store the results
-    results = pd.DataFrame({
-        'T-Statistic': [t_statistic],
-        'P-Value': [p_value],
-        'Decision': [decision]})
-    return results
+
 
 ######## Anomaly Detection ###########
 
@@ -118,65 +204,6 @@ def run_volatile_acidity_ttest(data):
 ####### Clustering #########
 
 
-def scale_data_clusters(train):
-    """
-    Scale the selected columns in the train.
-    Args:
-        train (pd.DataFrame): Training data.
-        columns (list): List of column names to scale.
-    Returns:
-        tuple: Scaled data as (X_train_scaled).
-    """
-    columns = ['alcohol', 'volatile_acidity',
-           'sulphates','citric_acid','free_sulfur_dioxide',
-           'ph','fixed_acidity','residual_sugar','white','chlorides','density']
-
-    # create X & y version of train, where y is a series with just the target variable and X are all the features.
-    X_train2 = train.drop(['total_sulfur_dioxide','wine_type'], axis=1)
-
-    # Create a scaler object
-    scaler = MinMaxScaler()
-    # Fit the scaler on the training data for the selected columns
-    scaler.fit(X_train2[columns])
-    # Apply scaling to the selected columns in all data splits
-    X_train_scaled2 = X_train2.copy()
-    X_train_scaled2[columns] = scaler.transform(X_train2[columns])
-
-    return X_train_scaled2
-
-def find_clusters(train, variable1, variable2, variable3):
-    '''
-    Inputs:
-    df, variable1, variable2, variable3 as strings
-    in search of potential clusters
-    Outputs:
-    Plot with clusters & 
-    new_df
-    '''
-    # create X_train
-    X = train[[variable1, variable2, variable3]]
-    # initiate kmeans
-    kmeans = KMeans(3)
-    kmeans.fit(X)
-    kmeans.predict(X)
-    # create new column with cluster
-    train['cluster'] = kmeans.predict(X)
-    
-    kmeans.cluster_centers_
-    centroids = pd.DataFrame(kmeans.cluster_centers_, columns=X.columns[:3])
-    train['cluster'] = 'cluster_' + train.cluster.astype(str)
-    
-    #Plot the actual distribution of species next to my generated clusters
-    fig, axes = plt.subplots(1, 2, figsize=(16, 9))
-    # Scatter for target variable
-    sns.scatterplot(ax=axes[0], x=variable1, y=variable2, hue='quality', palette='colorblind', data=train)
-    axes[0].set_title("Actual Distribution of Quality")
-    # Scatter for cluster
-    sns.scatterplot(ax=axes[1], x=variable1, y=variable2, hue='cluster', palette='colorblind', data=train)
-    axes[1].set_title("Clusters Generated by KMeans")
-    plt.show()
-    
-    return train
 
 
 
