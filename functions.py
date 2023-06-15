@@ -149,7 +149,7 @@ def question6(df):
     data_frames = [web_dev, data_science]
 
     # Create a figure and axes for the subplots
-    fig, axes = plt.subplots(nrows=len(data_frames), figsize=(12, 4 * len(data_frames)))
+    fig, axes = plt.subplots(nrows=len(data_frames), figsize=(12, 8 * len(data_frames)))
     
     # Iterate over the DataFrames and plot the scatter plots
     for i, df in enumerate(data_frames):
@@ -171,7 +171,7 @@ def question6(df):
         ax.set_title(f'Top 10 Endpoint Value Counts - {title}')
         ax.set_xlabel('Endpoint')
         ax.set_ylabel('Count')
-        plt.xticks(rotation=90)
+        plt.setp(ax.get_xticklabels(), rotation=90)
     # Adjust spacing between subplots
     plt.tight_layout()
     # Show the plot
