@@ -74,5 +74,9 @@ def wrangle_curriculum_logs():
     new_df = new_df.set_index('date')
     new_df = new_df.sort_index()
     
+    # setting start and end dates to datetime64
+    new_df.end_date = new_df.end_date.astype('datetime64')
+    new_df.start_date = new_df.start_date.astype('datetime64')
+
     return new_df
     

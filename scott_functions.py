@@ -48,64 +48,49 @@ import wrangle
 
 ###### VISUALIZATIONS ########
 
-def get_distplot(train):
+def question6(df):
     '''
-    creates a ditribution chart for the target variable quality
+    This function creates a list of web dev and data science programs
+    It then finds the Top 10 lessons most commonly accessed post graduation
+    Finally it creates a visualization of them 
     '''
-    # Plot the distribution of the target variable
-    plt.figure(figsize=(12, 3))
-    sns.histplot(train['quality'], kde=False, shrink=8)
-    plt.xlabel('Quality Rating')
-    plt.ylabel('Count')
-    plt.title('Distribution of Quality')
-    # Add a vertical line for the baseline 
-    plt.axvline(x=6, color='red', linestyle='--', label='Baseline')
-    plt.legend()
-    plt.show()
+    # selecting post grad access rows
+    df_postgrad= df[df.index>df.end_date]
+    # splitting to web dev (prog 0-2) and data science (prog 3)
+    web_dev = df_postgrad[df_postgrad.program_id <3]
+    data_science = df_postgrad[df_postgrad.program_id ==3]
+    data_frames = [web_dev, data_science]
+
+    # Create a figure and axes for the subplots
+    fig, axes = plt.subplots(nrows=len(data_frames), figsize=(12, 4 * len(data_frames)))
     
-
-
-def get_ca_quality(train):
-    '''
-    Input:
-    train df
-    Output:
-    barplot of quality and citric acid
-    '''
-    plt.figure(figsize=(12,6))
-    sns.barplot(data=train, x='quality', y='citric_acid', palette='Set1')
-    plt.title('Wine by Quality and Citric Acid')
-    plt.ylabel('Citric Acid (g/L)')
-    plt.xlabel('Quality Rating')
+    # Iterate over the DataFrames and plot the scatter plots
+    for i, df in enumerate(data_frames):
+        # Calculate the top 10 endpoint value counts
+        top_10 = df['endpoint'].value_counts().head(11)[1:]
+    
+        # Convert the value counts to a DataFrame for easier plotting
+        df_top_10 = pd.DataFrame({'Endpoint': top_10.index, 'Count': top_10.values})
+    
+        # Plot the scatter plot
+        ax = sns.scatterplot(data=df_top_10, x='Endpoint', y='Count', ax=axes[i])
+    
+        # Set plot title
+        if i == 0:
+            title = 'Web Dev'
+        else:
+            title = 'Data Science'
+        # Set plot title and axis labels
+        ax.set_title(f'Top 10 Endpoint Value Counts - {title}')
+        ax.set_xlabel('Endpoint')
+        ax.set_ylabel('Count')
+        plt.xticks(rotation=90)
+    # Adjust spacing between subplots
+    plt.tight_layout()
+    # Show the plot
     plt.show()
 
 
-
-
-
-###### STATS ########
-
-
-def run_volatile_acidity_ttest(data):
-    '''
-    runs a Ttest for volatile_acidity vs quality
-    '''
-    x = data['volatile_acidity']
-    y = data['quality']
-    # Perform t-test
-    t_statistic, p_value = stats.ttest_ind(x, y)
-    # Decide whether to reject the null hypothesis
-    alpha = 0.05
-    if p_value == alpha:
-        decision = "Fail to Reject Null Hypothesis"
-    else:
-        decision = "Reject Null Hypothesis"
-# Create a DataFrame to store the results
-    results = pd.DataFrame({
-        'T-Statistic': [t_statistic],
-        'P-Value': [p_value],
-        'Decision': [decision]})
-    return results
 
 ######## Anomaly Detection ###########
 
@@ -116,68 +101,5 @@ def run_volatile_acidity_ttest(data):
 
 
 ####### Clustering #########
-
-
-def scale_data_clusters(train):
-    """
-    Scale the selected columns in the train.
-    Args:
-        train (pd.DataFrame): Training data.
-        columns (list): List of column names to scale.
-    Returns:
-        tuple: Scaled data as (X_train_scaled).
-    """
-    columns = ['alcohol', 'volatile_acidity',
-           'sulphates','citric_acid','free_sulfur_dioxide',
-           'ph','fixed_acidity','residual_sugar','white','chlorides','density']
-
-    # create X & y version of train, where y is a series with just the target variable and X are all the features.
-    X_train2 = train.drop(['total_sulfur_dioxide','wine_type'], axis=1)
-
-    # Create a scaler object
-    scaler = MinMaxScaler()
-    # Fit the scaler on the training data for the selected columns
-    scaler.fit(X_train2[columns])
-    # Apply scaling to the selected columns in all data splits
-    X_train_scaled2 = X_train2.copy()
-    X_train_scaled2[columns] = scaler.transform(X_train2[columns])
-
-    return X_train_scaled2
-
-def find_clusters(train, variable1, variable2, variable3):
-    '''
-    Inputs:
-    df, variable1, variable2, variable3 as strings
-    in search of potential clusters
-    Outputs:
-    Plot with clusters & 
-    new_df
-    '''
-    # create X_train
-    X = train[[variable1, variable2, variable3]]
-    # initiate kmeans
-    kmeans = KMeans(3)
-    kmeans.fit(X)
-    kmeans.predict(X)
-    # create new column with cluster
-    train['cluster'] = kmeans.predict(X)
-    
-    kmeans.cluster_centers_
-    centroids = pd.DataFrame(kmeans.cluster_centers_, columns=X.columns[:3])
-    train['cluster'] = 'cluster_' + train.cluster.astype(str)
-    
-    #Plot the actual distribution of species next to my generated clusters
-    fig, axes = plt.subplots(1, 2, figsize=(16, 9))
-    # Scatter for target variable
-    sns.scatterplot(ax=axes[0], x=variable1, y=variable2, hue='quality', palette='colorblind', data=train)
-    axes[0].set_title("Actual Distribution of Quality")
-    # Scatter for cluster
-    sns.scatterplot(ax=axes[1], x=variable1, y=variable2, hue='cluster', palette='colorblind', data=train)
-    axes[1].set_title("Clusters Generated by KMeans")
-    plt.show()
-    
-    return train
-
-
 
 
