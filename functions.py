@@ -46,7 +46,7 @@ def get_lower_and_upper_bounds(s, multiplier=1.5):
 def question1_7(df, number=5, bottom=False):
     """
     This function will 
-    - accept a df from wrangle_curriculum_logs and a boolean top (True if user wants top 5, False if bottom 5)
+    - accept a df from wrangle_curriculum_logs and a boolean bottom (True if user wants bottom 5, False if top 5)
     - print out the top or bottom 5 most accessed pages per program
     - returns nothing
     """
@@ -81,37 +81,41 @@ def question2(df, multiplier=3):
     # initialize lists for top and bottom page counts
     top_page_list = []
     bottom_page_list = []
-    # loop through cohorts
+
+    # loop through cohorts and get most/least accessed pages
     for c_name in df.name.unique():
         # get the page counts for each cohort
         cohort_pages = df[df.name == c_name].endpoint.value_counts()
-        # get the lower, upper bounds of page counts using IQR multiplier of 3
+        # get the lower, upper bounds of page counts using IQR multiplier from function call
         lower, upper = get_lower_and_upper_bounds(cohort_pages, multiplier)
-        # add top pages to top_page_list
+        if lower <= 0: lower = 1
+        # add top/bottom pages to top/bottom_page_list
         top_page_list += list(cohort_pages[cohort_pages > upper].index)
-        # lower is < 0, so just add pages that only had a few hits (for now 1)
-        bottom_page_list += list(cohort_pages[cohort_pages <= 1].index)
-    # initialize a list of the bottom pages that are found in the top pages
+        bottom_page_list += list(cohort_pages[cohort_pages <= lower].index)
+
+    # make a list of the bottom pages that are found in the top pages
     # this will tell me what pages are glossed over by one cohort that are higher views in other cohorts
     bottom_in_top_list = []
     for p in bottom_page_list:
         if p in top_page_list:
             bottom_in_top_list.append(p)       
+
+    ## initialize the df we will return our results in : mismatch_pages_df
+    # set columns for df containing results: endpoint + the cohort names 
     name_list = list(df.name.unique())
     columns = ['endpoint'] + name_list
-    ## Debugging
-    # return bottom_in_top_list
-    # get a value_counts by cohort for each of the pages on the bottom_in_top_list
-    # first initialize a df
     mismatch_pages_df = pd.DataFrame(columns=columns)
     # for each page in the bottom_in_top_list, see what the page count is for each cohort & add it to mismatch_pages_df
     for p in bottom_in_top_list:
         p_count_list = []
+        # for each cohort get pagecount and append to p_count_list
         for cohort in mismatch_pages_df.columns[1:]:
             p_count = df[(df.name == cohort) & (df.endpoint == p)].endpoint.count()
             p_count_list.append(p_count)
+        # make a new row and add it to the bottom of mismatch_pages_df
         new_entry = [p] + p_count_list
         mismatch_pages_df.loc[len(mismatch_pages_df)] = new_entry
+    
     return mismatch_pages_df
 
 
@@ -120,7 +124,8 @@ def question3(df, limit=10):
     This function will 
     - accept the dataframe from wrangle_curriculum_logs
     - accept a limit, which is the max number of page access's for a user, default value = 10
-    - returns a dataframe of all page accesses for user_ids that <= number of page access's given in limit
+    - look at page access's that occur between a cohort's start_date and end_date
+    - returns a dataframe of page accesses grouped by user_id, where the total number of page access's is <= limit
     """
     # first extract from the df only those page accesses that occurred during a user's class start and end dates
     in_class_access_df = df[(df.index>=df.start_date) & (df.index<=df.end_date)]
@@ -149,11 +154,11 @@ def question6(df):
     data_frames = [web_dev, data_science]
 
     # Create a figure and axes for the subplots
-    fig, axes = plt.subplots(nrows=len(data_frames), figsize=(12, 4 * len(data_frames)))
+    fig, axes = plt.subplots(nrows=len(data_frames), figsize=(12, 8 * len(data_frames)))
     
     # Iterate over the DataFrames and plot the scatter plots
     for i, df in enumerate(data_frames):
-        # Calculate the top 10 endpoint value counts
+        # Calculate the top 10 endpoint value counts (ignoring first row which is '/')
         top_10 = df['endpoint'].value_counts().head(11)[1:]
     
         # Convert the value counts to a DataFrame for easier plotting
@@ -171,7 +176,7 @@ def question6(df):
         ax.set_title(f'Top 10 Endpoint Value Counts - {title}')
         ax.set_xlabel('Endpoint')
         ax.set_ylabel('Count')
-        plt.xticks(rotation=90)
+        plt.setp(ax.get_xticklabels(), rotation=90)
     # Adjust spacing between subplots
     plt.tight_layout()
     # Show the plot
