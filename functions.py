@@ -7,39 +7,12 @@ warnings.filterwarnings("ignore")
 # Basics:
 import pandas as pd
 import numpy as np
-import math
 import numpy as np
-import scipy.stats as stats
 import os
 
 # Data viz:
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-
-# Sklearn stuff:
-import sklearn
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import mutual_info_score
-from sklearn.cluster import KMeans
-
-from sklearn.model_selection import train_test_split
-
-## Regression Models
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.linear_model import LinearRegression, LassoLars, TweedieRegressor
-from sklearn.preprocessing import PolynomialFeatures
-
-## Classification Models
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier, plot_tree
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import RandomizedSearchCV
-from sklearn.ensemble import GradientBoostingClassifier
-
-from sklearn.metrics import classification_report, confusion_matrix, plot_confusion_matrix
 
 ## local
 import wrangle
@@ -142,7 +115,22 @@ def question2(df, multiplier=3):
     return mismatch_pages_df
 
 
-
+def question3(df, limit=10):
+    """
+    This function will 
+    - accept the dataframe from wrangle_curriculum_logs
+    - accept a limit, which is the max number of page access's for a user, default value = 10
+    - returns a dataframe of all page accesses for user_ids that <= number of page access's given in limit
+    """
+    # first extract from the df only those page accesses that occurred during a user's class start and end dates
+    in_class_access_df = df[(df.index>=df.start_date) & (df.index<=df.end_date)]
+    # get value_counts of users (number of page accesses per user)
+    in_class_user_page_counts = in_class_access_df.user_id.value_counts()
+    # get only the users that, while in class, accessed curriculum pages <= 'limit' times
+    low_access_in_class = in_class_user_page_counts[in_class_user_page_counts<=limit]
+    # get all page accesses by users who accessed the curriculum <= limit times
+    results_df = in_class_access_df[in_class_access_df['user_id'].isin(low_access_in_class.index)]
+    return results_df
 
 
 
@@ -188,20 +176,7 @@ def question6(df):
     plt.tight_layout()
     # Show the plot
     plt.show()
-###### STATS ########
 
-
-
-
-######## Anomaly Detection ###########
-
-
-
-
-
-
-
-####### Clustering #########
 
 
 
